@@ -1,6 +1,8 @@
-#include <vector>
 #ifndef TASKS_H
 #define TASKS_H
+#include <Arduino.h>
+#include <vector>
+#include <algorithm>
 extern void toggle(bool status);
 class schedule {
 public:
@@ -17,15 +19,9 @@ public:
     toggle(this->action);
   }
 };
-inline void sortTasks(std::vector<schedule>& tasks) {
-  std::sort(tasks.begin(), tasks.end(), [](const schedule& a, const schedule& b) {
-    return a.totalMinutes() < b.totalMinutes();
-  });
-}
-std::vector<schedule> backupTasks = {
-  { 0, 0, false, HIGH },
-  { 5, 0, false, LOW },
-  { 6, 30, false, HIGH },
-  { 18, 0, false, LOW },
-};
+void sortTasks();
+void loadTasksFile();
+void loadBackupTasks();
+extern std::vector<schedule> backupTasks;
+extern std::vector<schedule> tasks;
 #endif
