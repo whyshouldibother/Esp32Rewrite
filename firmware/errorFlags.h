@@ -3,7 +3,7 @@
 #include <Arduino.h>
 class ErrorFlags {
   private:
-    uint8_t error : 5 = 0;
+    uint8_t error : 6 = 0;
   public:
     ErrorFlags() {
       error = 0;
@@ -18,10 +18,10 @@ class ErrorFlags {
       return error;
     }
     const char* bin() {
-      static char buf[6];
-      for (int i = 4; i >= 0; i--)
-        buf[4 - i] = '0' + ((error >> i) & 1);
-      buf[5] = '\0';
+      static char buf[7];
+      for (int i = 5; i >= 0; i--)
+        buf[5 - i] = '0' + ((error >> i) & 1);
+      buf[7] = '\0';
       return buf;
   }
 };

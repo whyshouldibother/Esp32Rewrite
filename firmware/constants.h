@@ -16,6 +16,8 @@
 
 //Scheduling
 #define schedulerInterval 10000
+#define wiFiInterval 300000
 #define wifiWait 10000
-#define timeWait 3000
+#define timeWait 30000
+
 #endif

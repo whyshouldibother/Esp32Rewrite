@@ -16,17 +16,17 @@ const IPAddress subnet(255, 255, 255, 0);
 const IPAddress primaryDns(8, 8, 8, 8);
 const IPAddress secondaryDns(8, 8, 4, 4);
 
-//Time Server
-const char* ntpServer = "time.google.com";
+
 
 
 //WiFi vector
 std::vector<WiFiEntry> WiFiList;
 void syncTime() {
   uint32_t tmpTime = millis();
-  configTime(long(gmtOffsetSec), 0, ntpServer);
 
-  while (!getLocalTime(&timeInfo) && millis() - tmpTime <= timeWait) {}
+  while (!getLocalTime(&timeInfo) && (millis() - tmpTime <= timeWait)) {
+    delay(100);
+  }
   if (getLocalTime(&timeInfo)) e.set(3, 0);
   else e.set(3, 1);
 }
@@ -54,7 +54,7 @@ void connectWiFi() {
   WiFi.begin(bkpSsid, bkpPassword);
   tmpTime = millis();
   tmpTime = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - tmpTime < wifiWait) {}
+  while (WiFi.status() != WL_CONNECTED && millis() - tmpTime < wifiWait) {delay(100);}
 
   if (WiFi.status() == WL_CONNECTED) {
     e.set(2, 0);
@@ -64,9 +64,9 @@ void connectWiFi() {
   }
 }
 void loadWiFiFile() {
-  File file = SD.open("./wifi.dat", FILE_READ);
+  File file = SD.open("/wifi.dat", FILE_READ);
   if (!file) {
-    e.set(1, 1);
+    e.set(1, true);
   } else {
     e.set(1, 0);
     while (file.available()) {

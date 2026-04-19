@@ -10,8 +10,9 @@
 #include "networking.h"
 #include "sdCard.h"
 
-unsigned long tmpTime = 0, prevScheduler = 0;
-
+unsigned long tmpTime = 0, prevScheduler = 0, prevWiFiCheck;
+//Time Server
+const char* ntpServer = "time.google.com";
 
 uint8_t taskIndex = 0;
 
@@ -60,6 +61,11 @@ char ipAddr[19];
 
 void setup() {
 
+  //Set Relay to correct pin mode
+  pinMode(relayPin, OUTPUT);
+  pinMode(2, OUTPUT);
+
+
   //setup display
   beginDisplay();
 
@@ -78,11 +84,11 @@ void setup() {
   }
   sortTasks();
 
-  // Open http endponts
   if (e.get(2)) {
     digitalWrite(relayPin, LOW);
     return;
   }
+  // Open http endponts
   server.begin();
   server.on("/", HTTP_GET, handleRoot);
   server.on("/toggle", handleToggle);
@@ -90,50 +96,79 @@ void setup() {
   server.on("/listTasks", handleList);
   server.on("/stats", handleStats);
 
-  //Time syncing
+  // Time syncing
+  configTime(long(gmtOffsetSec), 0, ntpServer);
   syncTime();
   if (e.get(3)) {
     digitalWrite(relayPin, LOW);
     return;
   }
-  
+
   //default setup
   defaultSetup();
-  startUpLog();
+  if (!e.get(0))
+    startUpLog();
+
+  //display errors
+  display.setFont(u8g2_font_5x8_mr);
+  display.drawStr(95, 10, e.bin());
+  display.sendBuffer();
 }
 
 inline String twoDigit(int n) {
   return (n < 10 ? "0" : "") + String(n);
 }
+
 void loop() {
+
+  //handle server events
   server.handleClient();
+
+  //check for schedular
   if (millis() - prevScheduler >= schedulerInterval) {
     prevScheduler = millis();
-    if (!(getLocalTime(&timeInfo))) syncTime();
-    else {
-      display.setFont(u8g2_font_10x20_mr);
-      tmpText = ((timeInfo.tm_sec / 15) % 2) ? (twoDigit(timeInfo.tm_hour) + ":" + twoDigit(timeInfo.tm_min)) : faces;
-      display.drawStr(0, 48, tmpText.c_str());
-      if (timeInfo.tm_min == 0 && timeInfo.tm_hour % 3 == 0 && timeInfo.tm_sec > 45) syncTime();
-      for (int i = 0; i < tasks.size(); i++) {
-        schedule& task = tasks[i];
-        if (timeInfo.tm_hour == task.hour && timeInfo.tm_min == task.minute && !task.triggeredToday) {
-          task.runTask();
-          task.triggeredToday = true;
-          taskIndex = i;
-          display.setFont(u8g2_font_5x8_mr);
-          clearSection(0, 10, 60, 20);
-          tmpText = "Now>" + twoDigit(tasks[taskIndex].hour) + ":" + twoDigit(tasks[taskIndex].minute);
-          display.drawStr(0, 20, tmpText.c_str());
-          tmpText = "Next" + twoDigit(tasks[(taskIndex + 1) % tasks.size()].hour) + ":" + twoDigit(tasks[(taskIndex + 1) % tasks.size()].minute);
-          display.drawStr(0, 30, tmpText.c_str());
-        } else if (timeInfo.tm_min != task.minute) {
-          task.triggeredToday = false;
-        }
+
+    //sync time
+    if (!(getLocalTime(&timeInfo))) {
+      syncTime();
+      if (e.get(3)) goto WiFiCheck;
+    }
+
+    display.setFont(u8g2_font_10x20_mr);
+    tmpText = ((timeInfo.tm_sec / 15) % 2) ? (twoDigit(timeInfo.tm_hour) + ":" + twoDigit(timeInfo.tm_min)) : faces;
+    display.drawStr(0, 48, tmpText.c_str());
+
+    //time align
+    for (int i = 0; i < tasks.size(); i++) {
+      schedule& task = tasks[i];
+      if (timeInfo.tm_hour == task.hour && timeInfo.tm_min == task.minute && !task.triggeredToday) {
+
+        //trigger event
+        task.runTask();
+        task.triggeredToday = true;
+        taskIndex = i;
+        display.setFont(u8g2_font_5x8_mr);
+        clearSection(0, 10, 60, 20);
+        tmpText = "Now>" + twoDigit(tasks[taskIndex].hour) + ":" + twoDigit(tasks[taskIndex].minute);
+        display.drawStr(0, 20, tmpText.c_str());
+        tmpText = "Next" + twoDigit(tasks[(taskIndex + 1) % tasks.size()].hour) + ":" + twoDigit(tasks[(taskIndex + 1) % tasks.size()].minute);
+        display.drawStr(0, 30, tmpText.c_str());
+      } else if (timeInfo.tm_min != task.minute) {
+        task.triggeredToday = false;
+      }
+    }
+
+
+WiFiCheck:
+    //wifi interval
+    if (millis() - prevWiFiCheck >= wiFiInterval) {
+      prevWiFiCheck = millis();
+      if (WiFi.status() != WL_CONNECTED) {
+        connectWiFi();
       }
     }
     display.setFont(u8g2_font_5x8_mr);
-    display.drawStr(100, 10, e.bin());
+    display.drawStr(95, 10, e.bin());
     display.sendBuffer();
   }
 }
