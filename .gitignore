@@ -42,3 +42,5 @@
 
 #Secrets
 firmware/secrets.h
+*secrets.h
+*/build/
