@@ -8,6 +8,8 @@
 //Relay
 #define relayPin 15
 
+#define buttonPin 33
+
 //SD card
 #define SD_CS 5
 #define SD_MOSI 23

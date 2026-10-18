@@ -5,7 +5,8 @@
 #include "errorFlags.h"
 #include "sdCard.h"
 #include <vector>
-WebServer server(80);
+AsyncWebServer server(80);
+AsyncWebSocket ws("/light");
 struct tm timeInfo;
 
 

@@ -3,7 +3,8 @@
 #include <Arduino.h>
 #include <vector>
 #include <algorithm>
-extern void toggle(bool status);
+#include<constants.h>
+extern void toggle(int pin, bool status);
 class schedule {
 public:
   uint8_t hour:5;
@@ -16,7 +17,7 @@ public:
     return hour * 60 + minute;
   }
   void runTask() {
-    toggle(this->action);
+    toggle(relayPin, this->action);
   }
 };
 void sortTasks();

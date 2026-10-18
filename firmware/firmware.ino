@@ -1,4 +1,4 @@
-#include <WebServer.h>
+#include <ESPAsyncWebServer.h>
 #include <WiFi.h>
 #include "time.h"
 #include "secrets.h"
@@ -10,7 +10,8 @@
 #include "networking.h"
 #include "sdCard.h"
 
-unsigned long tmpTime = 0, prevScheduler = 0, prevWiFiCheck;
+unsigned long tmpTime = 0, prevScheduler = 0, prevWiFiCheck, prevToggleCheck =0;
+bool prevToggle;
 //Time Server
 const char* ntpServer = "time.google.com";
 
@@ -20,16 +21,17 @@ String tmpText = "";
 String faces = "(0_0)";
 
 
-inline void handleStats() {
+inline void handleStats(AsyncWebServerRequest* request) {
   tmpTime = millis();
   uint8_t day = tmpTime / 864000000;
   uint8_t hour = (tmpTime % 86400000) / 3600000;
   uint8_t minute = (tmpTime % 3600000) / 60000;
-  server.send(200, "application/json",
-              "{\"Uptime\":{\"day\":" + String(day) + ", \"hour\":" + String(hour) + ", \"minutes\":" + String(minute) + "},\"Realtime\":" + (getLocalTime(&timeInfo) ? ("{\"day\":" + String(timeInfo.tm_mday) + ", \"hour\":" + String(timeInfo.tm_hour) + ", \"minutes\":" + String(timeInfo.tm_min) + "}") : "\"Time Error\"") + "}");
+  request->send(200, "application/json",
+                "{\"Uptime\":{\"day\":" + String(day) + ", \"hour\":" + String(hour) + ", \"minutes\":" + String(minute) + "},\"Realtime\":" + (getLocalTime(&timeInfo) ? ("{\"day\":" + String(timeInfo.tm_mday) + ", \"hour\":" + String(timeInfo.tm_hour) + ", \"minutes\":" + String(timeInfo.tm_min) + "}") : "\"Time Error\"") + "}");
 }
-void toggle(bool status) {
-  digitalWrite(relayPin, status);
+void toggle( int pin,bool status) {
+  digitalWrite(pin, status);
+  ws.textAll(status?"OFF":"ON");
 }
 inline void defaultSetup() {
   sortTasks();
@@ -58,14 +60,14 @@ inline void defaultSetup() {
   display.sendBuffer();
 }
 char ipAddr[19];
-
 void setup() {
 
   //Set Relay to correct pin mode
   pinMode(relayPin, OUTPUT);
+  pinMode(4, OUTPUT);
   pinMode(2, OUTPUT);
-
-
+  pinMode(buttonPin, INPUT_PULLUP);
+  prevToggle = digitalRead(buttonPin)?0:1;
   //setup display
   beginDisplay();
 
@@ -89,12 +91,15 @@ void setup() {
     return;
   }
   // Open http endponts
-  server.begin();
   server.on("/", HTTP_GET, handleRoot);
-  server.on("/toggle", handleToggle);
-  server.on("/status", handleStatus);
-  server.on("/listTasks", handleList);
-  server.on("/stats", handleStats);
+  server.on("/toggle", HTTP_GET, handleToggle);
+  server.on("/status", HTTP_GET, handleStatus);
+  server.on("/listTasks", HTTP_GET, handleList);
+  server.on("/stats", HTTP_GET, handleStats);
+  ws.onEvent(handleLights);
+  server.addHandler(&ws);
+  server.begin();
+
 
   // Time syncing
   configTime(long(gmtOffsetSec), 0, ntpServer);
@@ -121,9 +126,16 @@ inline String twoDigit(int n) {
 
 void loop() {
 
-  //handle server events
-  server.handleClient();
+  //Clean up
+  ws.cleanupClients();
 
+  if(millis() - prevToggleCheck > 500){
+    prevToggleCheck = millis();
+    if(digitalRead(buttonPin)!=prevToggle){
+      toggle(relayPin, !digitalRead(relayPin));
+      prevToggle = digitalRead(buttonPin);
+    }
+  }
   //check for schedular
   if (millis() - prevScheduler >= schedulerInterval) {
     prevScheduler = millis();

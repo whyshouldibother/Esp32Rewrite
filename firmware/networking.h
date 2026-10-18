@@ -1,10 +1,11 @@
 #ifndef NETWORKING_H
 #define NETWORKING_H
-#include <WebServer.h>
+#include <ESPAsyncWebServer.h>
 #include <WiFi.h>
 #include "errorFlags.h"
 
-extern WebServer server;
+extern AsyncWebServer server;
+extern AsyncWebSocket ws;
 extern struct tm timeInfo;
 extern ErrorFlags e;
 
